@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    :root {
+      --primary-color: #333;
+      --schedule-color: #FF8C00;
+      --meeting-color: #4A90E2; 
+      --worship-color: #27ae60;  
+      --worship-maker-color: #8e44ad; /* 주보제작 버튼 색상 추가 (보라색) */
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-color: #333;
+    }
+    body {
+      font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { text-align: center; color: #333; font-size: 1.5rem; margin-bottom: 20px; }
+    
+    .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+    .view-section.active { display: block; }
+
+    .menu-container { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
+    .menu-btn {
+      width: 100%; padding: 25px 20px; border: none; border-radius: 15px;
+      font-size: 1.3rem; font-weight: bold; color: white; cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.2s;
+    }
+    .menu-btn:active { transform: scale(0.97); }
+    .btn-schedule { background-color: var(--schedule-color); }
+    .btn-meeting { background-color: var(--meeting-color); }
+    .btn-worship { background-color: var(--worship-color); }
+    .btn-worship-maker { background-color: var(--worship-maker-color); } /* 주보제작 버튼 스타일 적용 */
+
+    .header-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .back-btn {
+      background: #e0e0e0; border: none; padding: 8px 15px;
+      border-radius: 8px; cursor: pointer; font-weight: bold; color: #333;
+    }
+    .view-title { font-size: 1.2rem; font-weight: bold; margin: 0; }
+
+    .calendar-container {
+      background: var(--card-bg); border-radius: 12px; padding: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px;
+    }
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .calendar-header button { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px 10px; }
+    .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; margin-bottom: 10px; color: #777; font-size: 0.9rem; }
+    .weekdays div:first-child { color: #e74c3c; }
+    .weekdays div:last-child { color: #3498db; }
+    
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .calendar-day {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; font-size: 0.95rem; cursor: default; transition: all 0.2s;
+    }
+    .calendar-day.empty { background: none; cursor: default; }
+    
+    .calendar-day.has-schedule { background-color: #ffe8cc; color: var(--schedule-color); font-weight: bold; cursor: pointer; }
+    .calendar-day.has-schedule:hover, .calendar-day.active-schedule { background-color: var(--schedule-color); color: white; box-shadow: 0 2px 6px rgba(255, 140, 0, 0.4); }
+    
+    .calendar-day.has-meeting { background-color: #e1f0ff; color: var(--meeting-color); font-weight: bold; cursor: pointer; }
+    .calendar-day.has-meeting:hover, .calendar-day.active-meeting { background-color: var(--meeting-color); color: white; box-shadow: 0 2px 6px rgba(74, 144, 226, 0.4); }
+
+    .calendar-day.has-worship { background-color: #e8f8f5; color: var(--worship-color); font-weight: bold; cursor: pointer; }
+    .calendar-day.has-worship:hover, .calendar-day.active-worship { background-color: var(--worship-color); color: white; box-shadow: 0 2px 6px rgba(39, 174, 96, 0.4); }
+
+    .details-card {
+      background-color: var(--card-bg); padding: 20px; border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none;
+    }
+    .details-card h3 { margin-top: 0; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+    .section-title { color: #555; border-bottom: 1px dashed #ccc; padding-bottom: 5px; margin-top: 20px; font-size: 1rem; }
+    .agenda-item { margin-bottom: 15px; }
+    .agenda-title { font-weight: bold; color: #555; font-size: 0.9rem; margin-bottom: 4px; }
+    .agenda-content { background-color: #f9f9f9; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 0.95rem; }
+    
+    #loading { text-align: center; color: #666; font-weight: bold; margin-top: 50px; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div id="loading">데이터를 불러오는 중입니다...</div>
+
+  <div id="mainView" class="view-section">
+    <h1>교사 통합 보드</h1>
+    <div class="menu-container">
+      <button class="menu-btn btn-schedule" onclick="openMode('schedule')">📅 일정</button>
+      <button class="menu-btn btn-meeting" onclick="openMode('meeting')">📋 회의록</button>
+      <button class="menu-btn btn-worship" onclick="openMode('worship')">🙏 예배순서</button>
+      <button class="menu-btn btn-worship-maker" onclick="openWorshipMaker()">🖨️ 주보제작</button>
+    </div>
+  </div>
+
+  <div id="calendarView" class="view-section">
+    <div class="header-nav">
+      <button class="back-btn" onclick="goHome()">◀ 메인으로</button>
+      <div id="viewModeTitle" class="view-title">달력</div>
+      <div style="width: 80px;"></div>
+    </div>
+
+    <div class="calendar-container">
+      <div class="calendar-header">
+        <button id="btnPrevMonth" onclick="changeMonth(-1)">◀</button>
+        <h2 id="monthDisplay">2026년 3월</h2>
+        <button id="btnNextMonth" onclick="changeMonth(1)">▶</button>
+      </div>
+      <div class="weekdays">
+        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+      </div>
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </div>
+
+    <div class="details-card" id="detailsCard"></div>
+  </div>
+</div>
+
+<script>
+  let appData = { meetings: [], schedules: [], worships: [] };
+  let currentMode = ''; 
+  let currentYear = new Date().getFullYear();
+  let currentMonth = new Date().getMonth();
+
+  window.onload = function() {
+    google.script.run
+      .withSuccessHandler(function(data) {
+        appData = data;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('mainView').classList.add('active');
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById('loading').innerText = "데이터를 불러오는 데 실패했습니다.";
+      })
+      .getAppData();
+  };
+
+  // 주보제작 버튼 클릭 시 호출되는 함수 추가
+  function openWorshipMaker() {
+    const url = "https://script.google.com/macros/s/AKfycbw9Bf4pEr-a0MZxoNVyIECQMvH7YzjpdJf5VRsmDnxFikf5sLPohYAAdvhZgCKECDf_/exec";
+    window.open(url, '_blank'); // 새 창/새 탭으로 열기
+  }
+
+  function openMode(mode) {
+    currentMode = mode;
+    document.getElementById('mainView').classList.remove('active');
+    document.getElementById('calendarView').classList.add('active');
+    
+    const today = new Date();
+    currentYear = today.getFullYear();
+    currentMonth = today.getMonth();
+    
+    const titleEl = document.getElementById('viewModeTitle');
+    const prevBtn = document.getElementById('btnPrevMonth');
+    const nextBtn = document.getElementById('btnNextMonth');
+
+    if (mode === 'schedule') {
+      titleEl.innerText = "📅 일정";
+      titleEl.style.color = "var(--schedule-color)";
+      prevBtn.style.color = "var(--schedule-color)";
+      nextBtn.style.color = "var(--schedule-color)";
+    } else if (mode === 'meeting') {
+      titleEl.innerText = "📋 회의록";
+      titleEl.style.color = "var(--meeting-color)";
+      prevBtn.style.color = "var(--meeting-color)";
+      nextBtn.style.color = "var(--meeting-color)";
+    } else if (mode === 'worship') {
+      titleEl.innerText = "🙏 예배순서";
+      titleEl.style.color = "var(--worship-color)";
+      prevBtn.style.color = "var(--worship-color)";
+      nextBtn.style.color = "var(--worship-color)";
+    }
+    
+    document.getElementById('detailsCard').style.display = 'none'; 
+    renderCalendar();
+  }
+
+  function goHome() {
+    document.getElementById('calendarView').classList.remove('active');
+    document.getElementById('mainView').classList.add('active');
+  }
+
+  function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = ''; 
+    document.getElementById('monthDisplay').innerText = `${currentYear}년 ${currentMonth + 1}월`;
+    
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'calendar-day empty';
+      grid.appendChild(emptyCell);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayCell = document.createElement('div');
+      dayCell.className = 'calendar-day';
+      dayCell.innerText = day;
+      
+      const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      
+      if (currentMode === 'schedule') {
+        const schedule = appData.schedules.find(s => s.date === dateString);
+        if (schedule && schedule.count >= 1) {
+          dayCell.classList.add('has-schedule');
+          dayCell.onclick = () => showScheduleDetails(schedule, dayCell);
+        }
+      } else if (currentMode === 'meeting') {
+        const meeting = appData.meetings.find(m => m.date === dateString);
+        if (meeting) {
+          dayCell.classList.add('has-meeting');
+          dayCell.onclick = () => showMeetingDetails(meeting, dayCell);
+        }
+      } else if (currentMode === 'worship') {
+        const worship = appData.worships.find(w => w.date === dateString);
+        if (worship) {
+          dayCell.classList.add('has-worship');
+          dayCell.onclick = () => showWorshipDetails(worship, dayCell);
+        }
+      }
+      grid.appendChild(dayCell);
+    }
+  }
+
+  function changeMonth(dir) {
+    currentMonth += dir;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; } 
+    else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+    document.getElementById('detailsCard').style.display = 'none'; 
+  }
+
+  function showScheduleDetails(schedule, cellElement) {
+    highlightCell(cellElement, 'active-schedule');
+    const card = document.getElementById('detailsCard');
+    card.style.display = 'block';
+    card.innerHTML = `
+      <h3 style="color: var(--schedule-color); border-bottom-color: var(--schedule-color);">${schedule.date} 일정</h3>
+      <div class="agenda-item"><div class="agenda-title">🔔 일정 1</div><div class="agenda-content">${schedule.event1 || '일정 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">🔔 일정 2</div><div class="agenda-content">${schedule.event2 || '일정 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">🔔 일정 3</div><div class="agenda-content">${schedule.event3 || '일정 없음'}</div></div>
+    `;
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showMeetingDetails(meeting, cellElement) {
+    highlightCell(cellElement, 'active-meeting');
+    const card = document.getElementById('detailsCard');
+    card.style.display = 'block';
+    card.innerHTML = `
+      <h3 style="color: var(--meeting-color); border-bottom-color: var(--meeting-color);">${meeting.date} 회의록</h3>
+      <div class="agenda-item"><div class="agenda-title">📌 안건 1</div><div class="agenda-content">${meeting.agenda1 || '없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">📌 안건 2</div><div class="agenda-content">${meeting.agenda2 || '없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">📌 안건 3</div><div class="agenda-content">${meeting.agenda3 || '없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">📢 기타 공지 사항</div><div class="agenda-content">${meeting.notice || '없음'}</div></div>
+    `;
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showWorshipDetails(worship, cellElement) {
+    highlightCell(cellElement, 'active-worship');
+    const card = document.getElementById('detailsCard');
+    card.style.display = 'block';
+    card.innerHTML = `
+      <h3 style="color: var(--worship-color); border-bottom-color: var(--worship-color);">${worship.date} 예배 및 공과</h3>
+      
+      <div class="agenda-item"><div class="agenda-title">🎵 찬양곡</div><div class="agenda-content">${worship.song || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">🙏 기도자</div><div class="agenda-content">${worship.prayer || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">📖 설교 제목</div><div class="agenda-content">${worship.sermonTitle || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">📜 설교 본문</div><div class="agenda-content">${worship.sermonText || '내용 없음'}</div></div>
+      
+      <h4 class="section-title">💡 공과 (반목회) 나눔</h4>
+      <div class="agenda-item"><div class="agenda-title">🤝 Connect (여는질문)</div><div class="agenda-content">${worship.connect || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">🔍 Insight (풀이)</div><div class="agenda-content">${worship.insight || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">🌱 Real Life (적용)</div><div class="agenda-content">${worship.realLife || '내용 없음'}</div></div>
+      
+      <h4 class="section-title">📚 설교 요약</h4>
+      <div class="agenda-item"><div class="agenda-title">⏪ Last week (지난 주 설교)</div><div class="agenda-content">${worship.lastWeek || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">▶️ This week (이번 주 설교)</div><div class="agenda-content">${worship.thisWeek || '내용 없음'}</div></div>
+      <div class="agenda-item"><div class="agenda-title">📅 This Month (이번 달 요약)</div><div class="agenda-content">${worship.thisMonth || '내용 없음'}</div></div>
+    `;
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function highlightCell(cellElement, activeClass) {
+    document.querySelectorAll('.calendar-day').forEach(el => {
+      el.classList.remove('active-schedule', 'active-meeting', 'active-worship');
+    });
+    cellElement.classList.add(activeClass);
+  }
+</script>
+
+</body>
+</html>
